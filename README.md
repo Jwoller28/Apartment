@@ -70,7 +70,9 @@ This repo includes `.github/workflows/deploy.yml` and `gh-pages` scripts.
 
 For GitHub Actions:
 
-1. Add repository secrets:
+The included workflow has fallback values for this Supabase project so the current GitHub Pages deploy can run immediately. If you rotate the Supabase key or point the app at another Supabase project, add repository secrets:
+
+1. Add or update repository secrets:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 2. Confirm the workflow `VITE_BASE_PATH` matches the repository path. For `https://USER.github.io/Apartment/`, use:
