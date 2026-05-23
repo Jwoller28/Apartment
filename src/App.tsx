@@ -13,6 +13,7 @@ import { NameGate } from './components/NameGate'
 import { useFurnitureSync } from './hooks/useFurnitureSync'
 import { usePresence } from './hooks/usePresence'
 import { isSupabaseConfigured } from './lib/supabase'
+import type { FurnitureType } from './data/furniture'
 import type { UserName } from './types'
 
 const NAME_STORAGE_KEY = 'cozy-apartment-user'
@@ -76,6 +77,17 @@ function App() {
       void resetFurniture()
     }
   }, [resetFurniture])
+
+  const handleAddFurniture = useCallback(
+    (type: FurnitureType) => {
+      const newItemId = addFurniture(type)
+
+      if (newItemId) {
+        setSelectedId(newItemId)
+      }
+    },
+    [addFurniture],
+  )
 
   const lastSavedLabel = useMemo(() => {
     if (!lastSavedAt) {
@@ -186,7 +198,7 @@ function App() {
             onPointerWorldMove={updatePointer}
           />
         </section>
-        <FurniturePalette onAdd={addFurniture} />
+        <FurniturePalette onAdd={handleAddFurniture} />
       </main>
     </div>
   )

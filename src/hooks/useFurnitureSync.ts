@@ -219,12 +219,13 @@ export const useFurnitureSync = (userName: UserName | null) => {
   const addFurniture = useCallback(
     (type: FurnitureItem['type']) => {
       if (!userName) {
-        return
+        return null
       }
 
       const item = createFurnitureItem(type, userName)
       replaceItems(upsertIntoList(itemsRef.current, item))
       void persistItem(item)
+      return item.id
     },
     [persistItem, replaceItems, userName],
   )

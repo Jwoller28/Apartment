@@ -52,7 +52,7 @@ type AvatarState = {
 }
 
 const wallWidth = 8
-const minScale = 0.26
+const minScale = 0.16
 const maxScale = 1.6
 
 const clamp = (value: number, min: number, max: number) =>

@@ -71,8 +71,8 @@ export const usePresence = (userName: UserName | null) => {
         await channel.track({
           name: userName,
           color: getUserColor(userName),
-          x: 0,
-          y: 0,
+          x: null,
+          y: null,
           seenAt: Date.now(),
         })
       }
