@@ -898,6 +898,7 @@ export const ApartmentCanvas = ({
                 points={points}
                 stroke={floorPlanData.wallColor}
                 strokeWidth={wallWidth}
+                listening={!isMapEditing}
                 lineCap="round"
                 lineJoin="round"
               />
@@ -908,6 +909,7 @@ export const ApartmentCanvas = ({
                 points={[opening.x1, opening.y1, opening.x2, opening.y2]}
                 stroke={floorPlanData.openingColor}
                 strokeWidth={wallWidth + 4}
+                listening={!isMapEditing}
                 lineCap="round"
               />
             ))}
@@ -921,6 +923,7 @@ export const ApartmentCanvas = ({
                 fill="#c3a793"
                 stroke="#806b5e"
                 strokeWidth={2}
+                listening={!isMapEditing}
                 cornerRadius={6}
               />
             ))}
@@ -932,6 +935,7 @@ export const ApartmentCanvas = ({
               fill="#fff7e6"
               stroke="#8c725f"
               strokeWidth={2}
+              listening={!isMapEditing}
               cornerRadius={8}
             />
             <Circle
@@ -941,6 +945,7 @@ export const ApartmentCanvas = ({
               fill="#f9fbff"
               stroke="#86a8b2"
               strokeWidth={2}
+              listening={!isMapEditing}
             />
             <Rect
               x={bathroom.x + PX_PER_FOOT * 4}
@@ -950,19 +955,35 @@ export const ApartmentCanvas = ({
               fill="#f9fbff"
               stroke="#86a8b2"
               strokeWidth={2}
+              listening={!isMapEditing}
               cornerRadius={6}
             />
             {patio && (
               <Group>
-                {[0, 1, 2, 3, 4].map((line) => (
+                {[0, 1, 2].map((line) => (
                   <Line
-                    key={line}
+                    key={`top-${line}`}
                     points={[
                       patio.x + PX_PER_FOOT * 0.8,
-                      patio.y + PX_PER_FOOT * (1.3 + line * 2),
+                      patio.y + PX_PER_FOOT * (1.3 + line * 1.8),
                       patio.x + patio.width - PX_PER_FOOT * 0.8,
-                      patio.y + PX_PER_FOOT * (1.3 + line * 2),
+                      patio.y + PX_PER_FOOT * (1.3 + line * 1.8),
                     ]}
+                    listening={!isMapEditing}
+                    stroke="#b9d1b4"
+                    strokeWidth={2}
+                  />
+                ))}
+                {[0, 1, 2, 3].map((line) => (
+                  <Line
+                    key={`side-${line}`}
+                    points={[
+                      patio.x + PX_PER_FOOT * 0.28,
+                      patio.y + PX_PER_FOOT * (8.9 + line * 3),
+                      patio.x + PX_PER_FOOT * 0.78,
+                      patio.y + PX_PER_FOOT * (8.9 + line * 3),
+                    ]}
+                    listening={!isMapEditing}
                     stroke="#b9d1b4"
                     strokeWidth={2}
                   />

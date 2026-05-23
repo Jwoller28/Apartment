@@ -59,10 +59,24 @@ export const floorPlan: FloorPlanData = {
   rooms: [
     {
       name: 'Balcony/Patio',
-      x: ft(1),
+      x: ft(0),
       y: ft(1),
-      width: ft(18),
-      height: ft(7),
+      width: ft(19),
+      height: ft(21),
+      points: [
+        ft(0),
+        ft(1),
+        ft(19),
+        ft(1),
+        ft(19),
+        ft(8),
+        ft(1),
+        ft(8),
+        ft(1),
+        ft(22),
+        ft(0),
+        ft(22),
+      ],
       fill: '#dcebd9',
     },
     {

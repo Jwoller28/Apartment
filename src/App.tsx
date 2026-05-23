@@ -1,4 +1,8 @@
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Copy,
   LogOut,
   Map,
@@ -27,7 +31,7 @@ import type { FurnitureType } from './data/furniture'
 import type { UserName } from './types'
 
 const NAME_STORAGE_KEY = 'cozy-apartment-user'
-const MAP_STORAGE_KEY = 'cozy-apartment-map-draft'
+const MAP_STORAGE_KEY = 'cozy-apartment-map-draft-v2'
 const users: UserName[] = ['Jordan', 'Camila', 'Ari']
 
 const getStoredUser = (): UserName | null => {
@@ -245,6 +249,17 @@ function App() {
     setMapDraft((current) => scaleFloorPlan(current, factor))
   }, [])
 
+  const handleNudgeSelectedRoom = useCallback(
+    (dxFeet: number, dyFeet: number) => {
+      handleMoveRoom(
+        selectedRoomName,
+        dxFeet * PX_PER_FOOT,
+        dyFeet * PX_PER_FOOT,
+      )
+    },
+    [handleMoveRoom, selectedRoomName],
+  )
+
   const handleSaveMap = useCallback(() => {
     const savedAt = new Date().toISOString()
     window.localStorage.setItem(MAP_STORAGE_KEY, JSON.stringify(mapDraft))
@@ -422,6 +437,18 @@ function App() {
               <button type="button" onClick={() => handleScaleMap(1.04)}>
                 Map +
               </button>
+              <button type="button" onClick={() => handleNudgeSelectedRoom(0, -0.5)} aria-label="Move selected room up">
+                <ArrowUp size={16} />
+              </button>
+              <button type="button" onClick={() => handleNudgeSelectedRoom(-0.5, 0)} aria-label="Move selected room left">
+                <ArrowLeft size={16} />
+              </button>
+              <button type="button" onClick={() => handleNudgeSelectedRoom(0.5, 0)} aria-label="Move selected room right">
+                <ArrowRight size={16} />
+              </button>
+              <button type="button" onClick={() => handleNudgeSelectedRoom(0, 0.5)} aria-label="Move selected room down">
+                <ArrowDown size={16} />
+              </button>
               <button type="button" onClick={() => handleResizeSelectedRoom(0.94, 1)}>
                 Narrow
               </button>
@@ -447,7 +474,7 @@ function App() {
               </button>
               <span>
                 {mapCopyStatus ?? mapSavedLabel}
-                {selectedRoom ? ` · ${Math.round(selectedRoom.width / PX_PER_FOOT)}' x ${Math.round(selectedRoom.height / PX_PER_FOOT)}'` : ''}
+                {selectedRoom ? ` - ${Math.round(selectedRoom.width / PX_PER_FOOT)}' x ${Math.round(selectedRoom.height / PX_PER_FOOT)}'` : ''}
               </span>
             </div>
           )}
