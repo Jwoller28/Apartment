@@ -20,7 +20,13 @@ import {
   Stage,
   Text,
 } from 'react-konva'
-import { floorPlan, PX_PER_FOOT, zoneCenters } from '../data/floorPlan'
+import {
+  floorPlan,
+  PX_PER_FOOT,
+  zoneCenters,
+  type RoomZone,
+  type ZoneName,
+} from '../data/floorPlan'
 import { furnitureByType } from '../data/furniture'
 import { getUserColor } from '../hooks/usePresence'
 import type { FurnitureItem, Point, PresencePointer, UserName } from '../types'
@@ -54,6 +60,14 @@ type AvatarState = {
 const wallWidth = 8
 const minScale = 0.16
 const maxScale = 1.6
+const roomByName = floorPlan.rooms.reduce((lookup, room) => {
+  lookup[room.name] = room
+  return lookup
+}, {} as Record<ZoneName, RoomZone>)
+
+const diningRoom = roomByName['Dining Area']
+const bathroom = roomByName.Bathroom
+const patio = roomByName['Balcony/Patio']
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -821,8 +835,8 @@ export const ApartmentCanvas = ({
               />
             ))}
             <Rect
-              x={floorPlan.rooms[6].x + PX_PER_FOOT * 0.8}
-              y={floorPlan.rooms[6].y + PX_PER_FOOT * 1.4}
+              x={diningRoom.x + PX_PER_FOOT * 0.8}
+              y={diningRoom.y + PX_PER_FOOT * 1.4}
               width={PX_PER_FOOT * 3.2}
               height={PX_PER_FOOT * 2.2}
               fill="#fff7e6"
@@ -831,16 +845,16 @@ export const ApartmentCanvas = ({
               cornerRadius={8}
             />
             <Circle
-              x={floorPlan.rooms[1].x + PX_PER_FOOT * 2}
-              y={floorPlan.rooms[1].y + PX_PER_FOOT * 3.7}
+              x={bathroom.x + PX_PER_FOOT * 2}
+              y={bathroom.y + PX_PER_FOOT * 3.7}
               radius={PX_PER_FOOT * 0.55}
               fill="#f9fbff"
               stroke="#86a8b2"
               strokeWidth={2}
             />
             <Rect
-              x={floorPlan.rooms[1].x + PX_PER_FOOT * 4}
-              y={floorPlan.rooms[1].y + PX_PER_FOOT * 0.7}
+              x={bathroom.x + PX_PER_FOOT * 4}
+              y={bathroom.y + PX_PER_FOOT * 0.7}
               width={PX_PER_FOOT * 1.5}
               height={PX_PER_FOOT * 2.9}
               fill="#f9fbff"
@@ -848,18 +862,16 @@ export const ApartmentCanvas = ({
               strokeWidth={2}
               cornerRadius={6}
             />
-            {floorPlan.rooms[7] && (
+            {patio && (
               <Group>
                 {[0, 1, 2, 3, 4].map((line) => (
                   <Line
                     key={line}
                     points={[
-                      floorPlan.rooms[7].x + PX_PER_FOOT * 0.8,
-                      floorPlan.rooms[7].y + PX_PER_FOOT * (1.3 + line * 2),
-                      floorPlan.rooms[7].x +
-                        floorPlan.rooms[7].width -
-                        PX_PER_FOOT * 0.8,
-                      floorPlan.rooms[7].y + PX_PER_FOOT * (1.3 + line * 2),
+                      patio.x + PX_PER_FOOT * 0.8,
+                      patio.y + PX_PER_FOOT * (1.3 + line * 2),
+                      patio.x + patio.width - PX_PER_FOOT * 0.8,
+                      patio.y + PX_PER_FOOT * (1.3 + line * 2),
                     ]}
                     stroke="#b9d1b4"
                     strokeWidth={2}
