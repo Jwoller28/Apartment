@@ -1,6 +1,6 @@
 import Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { Maximize2, Minus, Plus } from 'lucide-react'
+import { Hand, Maximize2, Minus, Plus } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -111,12 +111,14 @@ const FurnitureGraphic = ({
   onSelect,
   onChange,
   onDragActiveChange,
+  isPanMode,
 }: {
   item: FurnitureItem
   isSelected: boolean
   onSelect: (id: string) => void
   onChange: ApartmentCanvasProps['onChange']
   onDragActiveChange: (isActive: boolean) => void
+  isPanMode: boolean
 }) => {
   const definition = furnitureByType[item.type]
 
@@ -125,7 +127,8 @@ const FurnitureGraphic = ({
       x={item.x}
       y={item.y}
       rotation={item.rotation}
-      draggable
+      draggable={!isPanMode}
+      listening={!isPanMode}
       onMouseDown={(event) => {
         event.cancelBubble = true
         onSelect(item.id)
@@ -556,6 +559,7 @@ export const ApartmentCanvas = ({
   const [stagePosition, setStagePosition] = useState<Point>({ x: 20, y: 20 })
   const [avatars, setAvatars] = useState<AvatarState[]>(initialAvatars)
   const [isFurnitureDragging, setIsFurnitureDragging] = useState(false)
+  const [isPanMode, setIsPanMode] = useState(false)
   const didFit = useRef(false)
   const stageScaleRef = useRef(stageScale)
   const stagePositionRef = useRef(stagePosition)
@@ -747,22 +751,37 @@ export const ApartmentCanvas = ({
 
   const roomNodes = useMemo(
     () =>
-      floorPlan.rooms.map((room) => (
-        <Rect
-          key={room.name}
-          x={room.x}
-          y={room.y}
-          width={room.width}
-          height={room.height}
-          fill={room.fill}
-          stroke={floorPlan.wallColor}
-          strokeWidth={wallWidth}
-          cornerRadius={8}
-          shadowColor="#d1bca5"
-          shadowBlur={5}
-          shadowOpacity={0.22}
-        />
-      )),
+      floorPlan.rooms.map((room) =>
+        room.points ? (
+          <Line
+            key={room.name}
+            points={room.points}
+            closed
+            fill={room.fill}
+            stroke={floorPlan.wallColor}
+            strokeWidth={wallWidth}
+            lineJoin="round"
+            shadowColor="#d1bca5"
+            shadowBlur={5}
+            shadowOpacity={0.22}
+          />
+        ) : (
+          <Rect
+            key={room.name}
+            x={room.x}
+            y={room.y}
+            width={room.width}
+            height={room.height}
+            fill={room.fill}
+            stroke={floorPlan.wallColor}
+            strokeWidth={wallWidth}
+            cornerRadius={8}
+            shadowColor="#d1bca5"
+            shadowBlur={5}
+            shadowOpacity={0.22}
+          />
+        ),
+      ),
     [],
   )
 
@@ -778,7 +797,7 @@ export const ApartmentCanvas = ({
           y={stagePosition.y}
           scaleX={stageScale}
           scaleY={stageScale}
-          draggable={!isFurnitureDragging}
+          draggable={isPanMode && !isFurnitureDragging}
           onDragEnd={(event) => {
             if (event.target !== event.target.getStage()) {
               return
@@ -887,6 +906,7 @@ export const ApartmentCanvas = ({
                 onSelect={onSelect}
                 onChange={onChange}
                 onDragActiveChange={setIsFurnitureDragging}
+                isPanMode={isPanMode}
               />
             ))}
             {avatars.map((avatar) => (
@@ -925,6 +945,15 @@ export const ApartmentCanvas = ({
         </Stage>
       )}
       <div className="zoom-controls" aria-label="Canvas zoom controls">
+        <button
+          type="button"
+          className={isPanMode ? 'is-active' : undefined}
+          onClick={() => setIsPanMode((current) => !current)}
+          aria-label={isPanMode ? 'Switch to decorating' : 'Move apartment view'}
+          aria-pressed={isPanMode}
+        >
+          <Hand size={19} />
+        </button>
         <button type="button" onClick={() => zoomFromCenter(1.14)} aria-label="Zoom in">
           <Plus size={20} />
         </button>
