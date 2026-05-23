@@ -183,6 +183,7 @@ h1 {
   opacity: 0.42;
 }
 
+.icon-button.is-active,
 .zoom-controls button.is-active {
   color: #ffffff;
   background: var(--mint);
@@ -261,6 +262,9 @@ h1 {
 }
 
 .canvas-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-height: 0;
   padding: 10px 10px 6px;
 }
@@ -269,6 +273,7 @@ h1 {
   position: relative;
   width: 100%;
   height: 100%;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   border: 1px solid #dfc7b2;
@@ -279,6 +284,53 @@ h1 {
     #fdf5eb;
   background-size: 32px 32px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+.map-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 2px 2px;
+  scrollbar-width: none;
+}
+
+.map-editor-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.map-editor-bar select,
+.map-editor-bar button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  border: 1px solid #d9bfaa;
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff7ed;
+  box-shadow: 0 3px 0 #d9bfaa;
+  font-weight: 850;
+}
+
+.map-editor-bar select {
+  max-width: min(58vw, 230px);
+  padding: 0 10px;
+}
+
+.map-editor-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.map-editor-bar span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .konva-stage {

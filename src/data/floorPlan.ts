@@ -31,7 +31,26 @@ export type DoorOpening = {
   y2: number
 }
 
-export const floorPlan = {
+export type CounterShape = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type FloorPlanData = {
+  width: number
+  height: number
+  wallColor: string
+  innerWallColor: string
+  openingColor: string
+  rooms: RoomZone[]
+  angledWalls: number[][]
+  counters: CounterShape[]
+  openings: DoorOpening[]
+}
+
+export const floorPlan: FloorPlanData = {
   width: ft(43),
   height: ft(33),
   wallColor: '#7a665a',

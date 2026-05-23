@@ -21,9 +21,9 @@ import {
   Text,
 } from 'react-konva'
 import {
-  floorPlan,
   PX_PER_FOOT,
   zoneCenters,
+  type FloorPlanData,
   type RoomZone,
   type ZoneName,
 } from '../data/floorPlan'
@@ -37,15 +37,20 @@ type UpdateOptions = {
 }
 
 type ApartmentCanvasProps = {
+  floorPlanData: FloorPlanData
   items: FurnitureItem[]
   selectedId: string | null
   presence: PresencePointer[]
+  isMapEditing: boolean
+  selectedRoomName: ZoneName | null
   onSelect: (id: string | null) => void
   onChange: (
     id: string,
     patch: Partial<FurnitureItem>,
     options?: UpdateOptions,
   ) => void
+  onSelectRoom: (name: ZoneName) => void
+  onMoveRoom: (name: ZoneName, dx: number, dy: number) => void
   onPointerWorldMove: (point: Point) => void
 }
 
@@ -60,14 +65,6 @@ type AvatarState = {
 const wallWidth = 8
 const minScale = 0.16
 const maxScale = 1.6
-const roomByName = floorPlan.rooms.reduce((lookup, room) => {
-  lookup[room.name] = room
-  return lookup
-}, {} as Record<ZoneName, RoomZone>)
-
-const diningRoom = roomByName['Dining Area']
-const bathroom = roomByName.Bathroom
-const patio = roomByName['Balcony/Patio']
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -112,6 +109,7 @@ const FurnitureGraphic = ({
   onChange,
   onDragActiveChange,
   isPanMode,
+  isMapEditing,
 }: {
   item: FurnitureItem
   isSelected: boolean
@@ -119,6 +117,7 @@ const FurnitureGraphic = ({
   onChange: ApartmentCanvasProps['onChange']
   onDragActiveChange: (isActive: boolean) => void
   isPanMode: boolean
+  isMapEditing: boolean
 }) => {
   const definition = furnitureByType[item.type]
 
@@ -127,8 +126,8 @@ const FurnitureGraphic = ({
       x={item.x}
       y={item.y}
       rotation={item.rotation}
-      draggable={!isPanMode}
-      listening={!isPanMode}
+      draggable={!isPanMode && !isMapEditing}
+      listening={!isPanMode && !isMapEditing}
       onMouseDown={(event) => {
         event.cancelBubble = true
         onSelect(item.id)
@@ -545,11 +544,16 @@ const renderFurniture = (
 }
 
 export const ApartmentCanvas = ({
+  floorPlanData,
   items,
   selectedId,
   presence,
+  isMapEditing,
+  selectedRoomName,
   onSelect,
   onChange,
+  onSelectRoom,
+  onMoveRoom,
   onPointerWorldMove,
 }: ApartmentCanvasProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -564,6 +568,17 @@ export const ApartmentCanvas = ({
   const stageScaleRef = useRef(stageScale)
   const stagePositionRef = useRef(stagePosition)
   const lastTouchDistance = useRef<number | null>(null)
+  const roomByName = useMemo(
+    () =>
+      floorPlanData.rooms.reduce((lookup, room) => {
+        lookup[room.name] = room
+        return lookup
+      }, {} as Record<ZoneName, RoomZone>),
+    [floorPlanData.rooms],
+  )
+  const diningRoom = roomByName['Dining Area']
+  const bathroom = roomByName.Bathroom
+  const patio = roomByName['Balcony/Patio']
 
   useEffect(() => {
     stageScaleRef.current = stageScale
@@ -599,8 +614,8 @@ export const ApartmentCanvas = ({
     const padding = 28
     const nextScale = clamp(
       Math.min(
-        (size.width - padding) / floorPlan.width,
-        (size.height - padding) / floorPlan.height,
+        (size.width - padding) / floorPlanData.width,
+        (size.height - padding) / floorPlanData.height,
       ),
       minScale,
       1,
@@ -608,10 +623,10 @@ export const ApartmentCanvas = ({
 
     setStageScale(nextScale)
     setStagePosition({
-      x: (size.width - floorPlan.width * nextScale) / 2,
-      y: (size.height - floorPlan.height * nextScale) / 2,
+      x: (size.width - floorPlanData.width * nextScale) / 2,
+      y: (size.height - floorPlanData.height * nextScale) / 2,
     })
-  }, [size.height, size.width])
+  }, [floorPlanData.height, floorPlanData.width, size.height, size.width])
 
   useEffect(() => {
     if (!didFit.current && size.width && size.height) {
@@ -751,19 +766,44 @@ export const ApartmentCanvas = ({
 
   const roomNodes = useMemo(
     () =>
-      floorPlan.rooms.map((room) =>
+      floorPlanData.rooms.map((room) =>
         room.points ? (
           <Line
             key={room.name}
             points={room.points}
             closed
             fill={room.fill}
-            stroke={floorPlan.wallColor}
+            stroke={
+              isMapEditing && selectedRoomName === room.name
+                ? '#ff7a90'
+                : floorPlanData.wallColor
+            }
             strokeWidth={wallWidth}
+            dash={isMapEditing && selectedRoomName === room.name ? [10, 6] : undefined}
+            draggable={isMapEditing}
             lineJoin="round"
             shadowColor="#d1bca5"
             shadowBlur={5}
             shadowOpacity={0.22}
+            onMouseDown={(event) => {
+              if (!isMapEditing) {
+                return
+              }
+              event.cancelBubble = true
+              onSelectRoom(room.name)
+            }}
+            onTap={(event) => {
+              if (!isMapEditing) {
+                return
+              }
+              event.cancelBubble = true
+              onSelectRoom(room.name)
+            }}
+            onDragStart={() => onSelectRoom(room.name)}
+            onDragEnd={(event) => {
+              onMoveRoom(room.name, event.target.x(), event.target.y())
+              event.target.position({ x: 0, y: 0 })
+            }}
           />
         ) : (
           <Rect
@@ -773,16 +813,47 @@ export const ApartmentCanvas = ({
             width={room.width}
             height={room.height}
             fill={room.fill}
-            stroke={floorPlan.wallColor}
+            stroke={
+              isMapEditing && selectedRoomName === room.name
+                ? '#ff7a90'
+                : floorPlanData.wallColor
+            }
             strokeWidth={wallWidth}
+            dash={isMapEditing && selectedRoomName === room.name ? [10, 6] : undefined}
+            draggable={isMapEditing}
             cornerRadius={8}
             shadowColor="#d1bca5"
             shadowBlur={5}
             shadowOpacity={0.22}
+            onMouseDown={(event) => {
+              if (!isMapEditing) {
+                return
+              }
+              event.cancelBubble = true
+              onSelectRoom(room.name)
+            }}
+            onTap={(event) => {
+              if (!isMapEditing) {
+                return
+              }
+              event.cancelBubble = true
+              onSelectRoom(room.name)
+            }}
+            onDragStart={() => onSelectRoom(room.name)}
+            onDragEnd={(event) => {
+              onMoveRoom(room.name, event.target.x() - room.x, event.target.y() - room.y)
+            }}
           />
         ),
       ),
-    [],
+    [
+      floorPlanData.rooms,
+      floorPlanData.wallColor,
+      isMapEditing,
+      onMoveRoom,
+      onSelectRoom,
+      selectedRoomName,
+    ],
   )
 
   return (
@@ -815,32 +886,32 @@ export const ApartmentCanvas = ({
             <Rect
               x={-PX_PER_FOOT}
               y={-PX_PER_FOOT}
-              width={floorPlan.width + PX_PER_FOOT * 2}
-              height={floorPlan.height + PX_PER_FOOT * 2}
+              width={floorPlanData.width + PX_PER_FOOT * 2}
+              height={floorPlanData.height + PX_PER_FOOT * 2}
               fill="#fbf3e8"
               name="floor-background"
             />
             {roomNodes}
-            {floorPlan.angledWalls.map((points, index) => (
+            {floorPlanData.angledWalls.map((points, index) => (
               <Line
                 key={index}
                 points={points}
-                stroke={floorPlan.wallColor}
+                stroke={floorPlanData.wallColor}
                 strokeWidth={wallWidth}
                 lineCap="round"
                 lineJoin="round"
               />
             ))}
-            {floorPlan.openings.map((opening, index) => (
+            {floorPlanData.openings.map((opening, index) => (
               <Line
                 key={index}
                 points={[opening.x1, opening.y1, opening.x2, opening.y2]}
-                stroke={floorPlan.openingColor}
+                stroke={floorPlanData.openingColor}
                 strokeWidth={wallWidth + 4}
                 lineCap="round"
               />
             ))}
-            {floorPlan.counters.map((counter, index) => (
+            {floorPlanData.counters.map((counter, index) => (
               <Rect
                 key={index}
                 x={counter.x}
@@ -907,6 +978,7 @@ export const ApartmentCanvas = ({
                 onChange={onChange}
                 onDragActiveChange={setIsFurnitureDragging}
                 isPanMode={isPanMode}
+                isMapEditing={isMapEditing}
               />
             ))}
             {avatars.map((avatar) => (

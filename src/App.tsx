@@ -1,5 +1,8 @@
 import {
+  Copy,
   LogOut,
+  Map,
+  RotateCcw,
   Save,
   Settings2,
   Trash2,
@@ -13,10 +16,18 @@ import { NameGate } from './components/NameGate'
 import { useFurnitureSync } from './hooks/useFurnitureSync'
 import { usePresence } from './hooks/usePresence'
 import { isSupabaseConfigured } from './lib/supabase'
+import {
+  floorPlan,
+  PX_PER_FOOT,
+  type FloorPlanData,
+  type RoomZone,
+  type ZoneName,
+} from './data/floorPlan'
 import type { FurnitureType } from './data/furniture'
 import type { UserName } from './types'
 
 const NAME_STORAGE_KEY = 'cozy-apartment-user'
+const MAP_STORAGE_KEY = 'cozy-apartment-map-draft'
 const users: UserName[] = ['Jordan', 'Camila', 'Ari']
 
 const getStoredUser = (): UserName | null => {
@@ -25,9 +36,95 @@ const getStoredUser = (): UserName | null => {
   return users.includes(stored as UserName) ? (stored as UserName) : null
 }
 
+const cloneFloorPlan = (): FloorPlanData =>
+  JSON.parse(JSON.stringify(floorPlan)) as FloorPlanData
+
+const loadMapDraft = (): FloorPlanData => {
+  const raw = window.localStorage.getItem(MAP_STORAGE_KEY)
+
+  if (!raw) {
+    return cloneFloorPlan()
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as FloorPlanData
+
+    if (Array.isArray(parsed.rooms) && parsed.rooms.length > 0) {
+      return parsed
+    }
+  } catch {
+    return cloneFloorPlan()
+  }
+
+  return cloneFloorPlan()
+}
+
+const shiftPoints = (points: number[] | undefined, dx: number, dy: number) =>
+  points?.map((value, index) => value + (index % 2 === 0 ? dx : dy))
+
+const getRoomBounds = (room: RoomZone) => {
+  if (!room.points?.length) {
+    return {
+      x: room.x,
+      y: room.y,
+      width: room.width,
+      height: room.height,
+    }
+  }
+
+  const xValues = room.points.filter((_, index) => index % 2 === 0)
+  const yValues = room.points.filter((_, index) => index % 2 === 1)
+  const x = Math.min(...xValues)
+  const y = Math.min(...yValues)
+
+  return {
+    x,
+    y,
+    width: Math.max(...xValues) - x,
+    height: Math.max(...yValues) - y,
+  }
+}
+
+const scaleNumbers = (values: number[], factor: number) =>
+  values.map((value) => value * factor)
+
+const scaleFloorPlan = (plan: FloorPlanData, factor: number): FloorPlanData => ({
+  ...plan,
+  width: plan.width * factor,
+  height: plan.height * factor,
+  rooms: plan.rooms.map((room) => ({
+    ...room,
+    x: room.x * factor,
+    y: room.y * factor,
+    width: room.width * factor,
+    height: room.height * factor,
+    points: room.points ? scaleNumbers(room.points, factor) : undefined,
+  })),
+  angledWalls: plan.angledWalls.map((points) => scaleNumbers(points, factor)),
+  counters: plan.counters.map((counter) => ({
+    x: counter.x * factor,
+    y: counter.y * factor,
+    width: counter.width * factor,
+    height: counter.height * factor,
+  })),
+  openings: plan.openings.map((opening) => ({
+    x1: opening.x1 * factor,
+    y1: opening.y1 * factor,
+    x2: opening.x2 * factor,
+    y2: opening.y2 * factor,
+  })),
+})
+
 function App() {
   const [userName, setUserName] = useState<UserName | null>(() => getStoredUser())
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mapDraft, setMapDraft] = useState<FloorPlanData>(() => loadMapDraft())
+  const [isMapEditing, setIsMapEditing] = useState(false)
+  const [selectedRoomName, setSelectedRoomName] = useState<ZoneName>('Living Room')
+  const [mapSavedAt, setMapSavedAt] = useState<string | null>(() =>
+    window.localStorage.getItem(`${MAP_STORAGE_KEY}-saved-at`),
+  )
+  const [mapCopyStatus, setMapCopyStatus] = useState<string | null>(null)
   const {
     items,
     syncState,
@@ -44,6 +141,10 @@ function App() {
   const selectedItem = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
+  )
+  const selectedRoom = useMemo(
+    () => mapDraft.rooms.find((room) => room.name === selectedRoomName) ?? null,
+    [mapDraft.rooms, selectedRoomName],
   )
 
   useEffect(() => {
@@ -89,6 +190,97 @@ function App() {
     [addFurniture],
   )
 
+  const handleMoveRoom = useCallback((name: ZoneName, dx: number, dy: number) => {
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+      return
+    }
+
+    setMapDraft((current) => ({
+      ...current,
+      rooms: current.rooms.map((room) =>
+        room.name === name
+          ? {
+              ...room,
+              x: room.x + dx,
+              y: room.y + dy,
+              points: shiftPoints(room.points, dx, dy),
+            }
+          : room,
+      ),
+    }))
+  }, [])
+
+  const handleResizeSelectedRoom = useCallback(
+    (scaleX: number, scaleY: number) => {
+      setMapDraft((current) => ({
+        ...current,
+        rooms: current.rooms.map((room) => {
+          if (room.name !== selectedRoomName) {
+            return room
+          }
+
+          const bounds = getRoomBounds(room)
+          const width = Math.max(PX_PER_FOOT * 2, room.width * scaleX)
+          const height = Math.max(PX_PER_FOOT * 2, room.height * scaleY)
+
+          return {
+            ...room,
+            x: bounds.x,
+            y: bounds.y,
+            width,
+            height,
+            points: room.points?.map((value, index) =>
+              index % 2 === 0
+                ? bounds.x + (value - bounds.x) * scaleX
+                : bounds.y + (value - bounds.y) * scaleY,
+            ),
+          }
+        }),
+      }))
+    },
+    [selectedRoomName],
+  )
+
+  const handleScaleMap = useCallback((factor: number) => {
+    setMapDraft((current) => scaleFloorPlan(current, factor))
+  }, [])
+
+  const handleSaveMap = useCallback(() => {
+    const savedAt = new Date().toISOString()
+    window.localStorage.setItem(MAP_STORAGE_KEY, JSON.stringify(mapDraft))
+    window.localStorage.setItem(`${MAP_STORAGE_KEY}-saved-at`, savedAt)
+    setMapSavedAt(savedAt)
+    setMapCopyStatus('Saved')
+  }, [mapDraft])
+
+  const handleCopyMap = useCallback(async () => {
+    const payload = JSON.stringify(mapDraft, null, 2)
+
+    try {
+      await navigator.clipboard.writeText(payload)
+      setMapCopyStatus('Copied')
+    } catch {
+      window.prompt('Copy this map JSON:', payload)
+      setMapCopyStatus('Ready')
+    }
+  }, [mapDraft])
+
+  const handleResetMap = useCallback(() => {
+    const shouldReset = window.confirm('Reset the map draft back to the built-in plan?')
+
+    if (!shouldReset) {
+      return
+    }
+
+    const freshPlan = cloneFloorPlan()
+    window.localStorage.removeItem(MAP_STORAGE_KEY)
+    window.localStorage.removeItem(`${MAP_STORAGE_KEY}-saved-at`)
+    setMapDraft(freshPlan)
+    setSelectedRoomName('Living Room')
+    setMapSavedAt(null)
+    setMapCopyStatus('Reset')
+  }, [])
+
   const lastSavedLabel = useMemo(() => {
     if (!lastSavedAt) {
       return 'Not saved yet'
@@ -99,6 +291,16 @@ function App() {
       minute: '2-digit',
     })}`
   }, [lastSavedAt])
+  const mapSavedLabel = useMemo(() => {
+    if (!mapSavedAt) {
+      return 'Map not saved'
+    }
+
+    return `Map saved ${new Date(mapSavedAt).toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    })}`
+  }, [mapSavedAt])
 
   const setupMessage = useMemo(() => {
     if (!errorMessage) {
@@ -161,6 +363,18 @@ function App() {
           >
             <Trash2 size={19} />
           </button>
+          <button
+            type="button"
+            className={`icon-button ${isMapEditing ? 'is-active' : ''}`}
+            onClick={() => {
+              setIsMapEditing((current) => !current)
+              setSelectedId(null)
+            }}
+            aria-label={isMapEditing ? 'Close map editor' : 'Edit apartment map'}
+            aria-pressed={isMapEditing}
+          >
+            <Map size={19} />
+          </button>
           <details className="dev-menu">
             <summary aria-label="Open settings">
               <Settings2 size={19} />
@@ -189,12 +403,65 @@ function App() {
       )}
       <main className="workspace">
         <section className="canvas-panel" aria-label="Apartment floor plan">
+          {isMapEditing && (
+            <div className="map-editor-bar">
+              <select
+                value={selectedRoomName}
+                onChange={(event) => setSelectedRoomName(event.target.value as ZoneName)}
+                aria-label="Room to edit"
+              >
+                {mapDraft.rooms.map((room) => (
+                  <option key={room.name} value={room.name}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={() => handleScaleMap(0.96)}>
+                Map -
+              </button>
+              <button type="button" onClick={() => handleScaleMap(1.04)}>
+                Map +
+              </button>
+              <button type="button" onClick={() => handleResizeSelectedRoom(0.94, 1)}>
+                Narrow
+              </button>
+              <button type="button" onClick={() => handleResizeSelectedRoom(1.06, 1)}>
+                Widen
+              </button>
+              <button type="button" onClick={() => handleResizeSelectedRoom(1, 0.94)}>
+                Shorter
+              </button>
+              <button type="button" onClick={() => handleResizeSelectedRoom(1, 1.06)}>
+                Taller
+              </button>
+              <button type="button" onClick={handleSaveMap}>
+                <Save size={16} />
+                Map
+              </button>
+              <button type="button" onClick={() => void handleCopyMap()}>
+                <Copy size={16} />
+                JSON
+              </button>
+              <button type="button" onClick={handleResetMap} aria-label="Reset map draft">
+                <RotateCcw size={16} />
+              </button>
+              <span>
+                {mapCopyStatus ?? mapSavedLabel}
+                {selectedRoom ? ` · ${Math.round(selectedRoom.width / PX_PER_FOOT)}' x ${Math.round(selectedRoom.height / PX_PER_FOOT)}'` : ''}
+              </span>
+            </div>
+          )}
           <ApartmentCanvas
+            floorPlanData={mapDraft}
             items={items}
             selectedId={selectedItem?.id ?? null}
             presence={pointers}
+            isMapEditing={isMapEditing}
+            selectedRoomName={selectedRoomName}
             onSelect={setSelectedId}
             onChange={updateFurniture}
+            onSelectRoom={setSelectedRoomName}
+            onMoveRoom={handleMoveRoom}
             onPointerWorldMove={updatePointer}
           />
         </section>
