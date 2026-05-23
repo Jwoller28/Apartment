@@ -12,6 +12,7 @@ import { FurniturePalette } from './components/FurniturePalette'
 import { NameGate } from './components/NameGate'
 import { useFurnitureSync } from './hooks/useFurnitureSync'
 import { usePresence } from './hooks/usePresence'
+import { isSupabaseConfigured } from './lib/supabase'
 import type { UserName } from './types'
 
 const NAME_STORAGE_KEY = 'cozy-apartment-user'
@@ -37,7 +38,7 @@ function App() {
     saveAll,
     resetFurniture,
   } = useFurnitureSync(userName)
-  const { pointers, updatePointer, isRealtimePresenceOn } = usePresence(userName)
+  const { pointers, updatePointer } = usePresence(userName)
 
   const selectedItem = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -171,7 +172,7 @@ function App() {
         </div>
       </header>
       {setupMessage && <div className="error-banner">{setupMessage}</div>}
-      {!isRealtimePresenceOn && (
+      {!isSupabaseConfigured && (
         <div className="local-banner">Add Supabase env vars for co-op mode.</div>
       )}
       <main className="workspace">
