@@ -96,11 +96,13 @@ const FurnitureGraphic = ({
   isSelected,
   onSelect,
   onChange,
+  onDragActiveChange,
 }: {
   item: FurnitureItem
   isSelected: boolean
   onSelect: (id: string) => void
   onChange: ApartmentCanvasProps['onChange']
+  onDragActiveChange: (isActive: boolean) => void
 }) => {
   const definition = furnitureByType[item.type]
 
@@ -121,8 +123,10 @@ const FurnitureGraphic = ({
       onDragStart={(event) => {
         event.cancelBubble = true
         onSelect(item.id)
+        onDragActiveChange(true)
       }}
       onDragMove={(event) => {
+        event.cancelBubble = true
         onChange(
           item.id,
           {
@@ -133,10 +137,12 @@ const FurnitureGraphic = ({
         )
       }}
       onDragEnd={(event) => {
+        event.cancelBubble = true
         onChange(item.id, {
           x: event.target.x(),
           y: event.target.y(),
         })
+        onDragActiveChange(false)
       }}
     >
       {isSelected && (
@@ -535,6 +541,7 @@ export const ApartmentCanvas = ({
   const [stageScale, setStageScale] = useState(0.55)
   const [stagePosition, setStagePosition] = useState<Point>({ x: 20, y: 20 })
   const [avatars, setAvatars] = useState<AvatarState[]>(initialAvatars)
+  const [isFurnitureDragging, setIsFurnitureDragging] = useState(false)
   const didFit = useRef(false)
   const stageScaleRef = useRef(stageScale)
   const stagePositionRef = useRef(stagePosition)
@@ -757,8 +764,12 @@ export const ApartmentCanvas = ({
           y={stagePosition.y}
           scaleX={stageScale}
           scaleY={stageScale}
-          draggable
+          draggable={!isFurnitureDragging}
           onDragEnd={(event) => {
+            if (event.target !== event.target.getStage()) {
+              return
+            }
+
             setStagePosition({ x: event.target.x(), y: event.target.y() })
           }}
           onWheel={handleWheel}
@@ -863,6 +874,7 @@ export const ApartmentCanvas = ({
                 isSelected={selectedId === item.id}
                 onSelect={onSelect}
                 onChange={onChange}
+                onDragActiveChange={setIsFurnitureDragging}
               />
             ))}
             {avatars.map((avatar) => (

@@ -13,7 +13,21 @@ type PresencePayload = Partial<PresencePointer> & {
   online_at?: string
 }
 
+const PRESENCE_SESSION_KEY = 'cozy-apartment-presence-session'
+
 export const getUserColor = (name: UserName) => colorByName[name]
+
+const getPresenceSessionId = () => {
+  const existing = window.sessionStorage.getItem(PRESENCE_SESSION_KEY)
+
+  if (existing) {
+    return existing
+  }
+
+  const next = crypto.randomUUID()
+  window.sessionStorage.setItem(PRESENCE_SESSION_KEY, next)
+  return next
+}
 
 export const usePresence = (userName: UserName | null) => {
   const [pointers, setPointers] = useState<PresencePointer[]>([])
@@ -29,10 +43,11 @@ export const usePresence = (userName: UserName | null) => {
       return
     }
 
+    const presenceKey = `${userName}-${getPresenceSessionId()}`
     const channel = client.channel('apartment-presence', {
       config: {
         presence: {
-          key: `${userName}-${crypto.randomUUID()}`,
+          key: presenceKey,
         },
       },
     })
@@ -43,7 +58,9 @@ export const usePresence = (userName: UserName | null) => {
         PresencePayload[]
       >
 
-      const next = Object.values(state)
+      const byName = new Map<UserName, PresencePointer>()
+
+      Object.values(state)
         .flat()
         .filter((presence): presence is PresencePointer =>
           Boolean(
@@ -60,8 +77,15 @@ export const usePresence = (userName: UserName | null) => {
           y: Number(presence.y),
           seenAt: Number(presence.seenAt ?? Date.now()),
         }))
+        .forEach((presence) => {
+          const existing = byName.get(presence.name)
 
-      setPointers(next)
+          if (!existing || presence.seenAt > existing.seenAt) {
+            byName.set(presence.name, presence)
+          }
+        })
+
+      setPointers([...byName.values()])
     }
 
     channel.on('presence', { event: 'sync' }, syncPresence)
@@ -85,6 +109,7 @@ export const usePresence = (userName: UserName | null) => {
         window.clearTimeout(throttleTimer.current)
       }
 
+      void channel.untrack()
       channelRef.current = null
       void client.removeChannel(channel)
     }
